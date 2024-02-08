@@ -1,0 +1,37 @@
+name: Build
+on:
+  schedule:
+    - cron: "19 19 * * *"
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Login
+        run: podman login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+      - name: build
+        run: |
+          set -xeuo pipefail
+          for d in stock-httpd; do
+            cd $d
+            podman build -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/$d .
+            podman push ${{ env.REGISTRY }}/${{ github.repository_owner }}/$d
+            cd -
+          done
